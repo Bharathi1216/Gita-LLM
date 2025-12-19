@@ -3,13 +3,15 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import chromadb
 import requests
-
+import os
+from dotenv import load_dotenv
+load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
 # --- CONFIGURATION ---
 # Paste your actual key inside the quotes below
-GEMINI_API_KEY = "AIzaSyCmrZNdv4Fm-qoP37aOZ9Oe0VB7DyFkIXU" 
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # --- CONNECT TO DATABASE ---
 chroma_client = chromadb.PersistentClient(path="./backend/gita_db") 
