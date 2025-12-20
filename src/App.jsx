@@ -1,64 +1,81 @@
 import { useState, useEffect, useRef } from 'react'
 import './App.css'
 
-// --- ROBUST TYPEWRITER (Fixed Repeating Bug) ---
-const Typewriter = ({ text, speed = 15, onComplete }) => {
+// ================= TYPEWRITER (FIXED, MESSAGE-ID BASED) =================
+const Typewriter = ({ text, speed = 15, onComplete, messageId }) => {
   const [display, setDisplay] = useState('')
-  const hasStartedRef = useRef(false) // Track if we started typing
+  const typedMessagesRef = useRef(new Set())
 
   useEffect(() => {
-    // If we already typed this text, don't restart (prevents repeating)
-    if (hasStartedRef.current && display === text) return;
-    
-    hasStartedRef.current = true;
-    setDisplay(''); // Start fresh
-    
+    // If this message already typed once, show instantly
+    if (typedMessagesRef.current.has(messageId)) {
+      setDisplay(text)
+      return
+    }
+
+    typedMessagesRef.current.add(messageId)
+    setDisplay('')
     let i = 0
+
     const timer = setInterval(() => {
       if (i < text.length) {
-        setDisplay((prev) => prev + text.charAt(i))
+        setDisplay(prev => prev + text.charAt(i))
         i++
       } else {
         clearInterval(timer)
-        if (onComplete) onComplete()
+        onComplete && onComplete()
       }
     }, speed)
-    
+
     return () => clearInterval(timer)
-  }, [text, speed, onComplete])
+  }, [text, speed, onComplete, messageId])
 
   return <span>{display}</span>
 }
 
+// ================= APP =================
 function App() {
   const [input, setInput] = useState('')
-  // ⚠️ Start with empty array so we don't animate the first message on load
-  const [messages, setMessages] = useState([]) 
+  const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)
+  const [userId, setUserId] = useState(null)
   const messagesEndRef = useRef(null)
 
-  // Add the welcome message ONCE when the app loads
+  // ---------- INIT ----------
   useEffect(() => {
     setMessages([{ 
-      sender: 'bot', 
+      sender: 'bot',
       text: 'I am ready. Tell me your troubles.',
-      id: 'welcome-msg' // Static ID prevents re-renders
+      id: 'welcome-msg'
     }])
+
+    fetch('http://127.0.0.1:5000/api/survey', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    })
+      .then(res => res.json())
+      .then(data => setUserId(data.user_id))
+      .catch(() => null)
   }, [])
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages, loading])
+  useEffect(scrollToBottom, [messages, loading])
 
+  // ---------- SEND MESSAGE ----------
   const sendMessage = async () => {
     if (!input.trim()) return
 
-    const userMsg = { sender: 'user', text: input, id: Date.now() }
-    setMessages((prev) => [...prev, userMsg])
+    const userMsg = {
+      sender: 'user',
+      text: input,
+      id: Date.now()
+    }
+
+    setMessages(prev => [...prev, userMsg])
     setInput('')
     setLoading(true)
 
@@ -66,22 +83,25 @@ function App() {
       const response = await fetch('http://127.0.0.1:5000/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg.text }),
+        body: JSON.stringify({
+          message: userMsg.text,
+          user_id: userId
+        })
       })
-      
+
       const data = await response.json()
 
-      const botMsg = { 
-        sender: 'bot', 
-        text: data.response, 
-        verse: data.data,
+      const botMsg = {
+        sender: 'bot',
+        text: data?.response || 'Please try again.',
+        verse: data?.data || null,
         id: Date.now() + 1
       }
-      setMessages((prev) => [...prev, botMsg])
 
-    } catch (error) {
-      setMessages((prev) => [...prev, { 
-        sender: 'bot', 
+      setMessages(prev => [...prev, botMsg])
+    } catch {
+      setMessages(prev => [...prev, {
+        sender: 'bot',
         text: 'The divine connection is faint. Please check the backend.',
         id: Date.now() + 1
       }])
@@ -90,10 +110,11 @@ function App() {
     setLoading(false)
   }
 
+  // ================= RENDER =================
   return (
     <div className="main-wrapper">
       <div className="app-container">
-        
+
         <header className="chat-header">
           <h1>GITA <span>AI</span></h1>
           <div className="status-dot"></div>
@@ -101,68 +122,111 @@ function App() {
 
         <div className="messages-area">
           <div className="message-container">
+
             {messages.map((msg, index) => {
-              // Only animate the VERY LAST message
-              const isLatest = index === messages.length - 1;
-              // Don't animate the welcome message to be safe
-              const isWelcome = msg.id === 'welcome-msg';
+              const isLatest = index === messages.length - 1
+              const isWelcome = msg.id === 'welcome-msg'
 
               return (
                 <div key={msg.id} className={`message-row ${msg.sender}`}>
                   <div className={`bubble ${msg.sender}`}>
-                    
+
+                    {/* -------- MESSAGE TEXT -------- */}
                     <div className="message-text">
-                      {msg.sender === 'bot' && isLatest && !isWelcome ? (
-                        <Typewriter text={msg.text} onComplete={scrollToBottom} />
-                      ) : (
-                        msg.text
-                      )}
+                      {msg.sender === 'bot' && isLatest && !isWelcome
+                        ? (
+                          <Typewriter
+                            text={msg.text}
+                            messageId={msg.id}
+                            onComplete={scrollToBottom}
+                          />
+                        ) : (
+                          msg.text
+                        )}
                     </div>
-                    
-                    {msg.verse && (
+
+                    {/* -------- VERSE CARD -------- */}
+                    {msg.verse && msg.verse.english && (
                       <div className="verse-card">
                         <div className="card-header">
                           VERSE {msg.verse.id.replace('BG_', '')}
                         </div>
+
                         <div className="card-content">
-                          <p className="sanskrit">
-                            {isLatest ? <Typewriter text={msg.verse.sanskrit} speed={10} /> : msg.verse.sanskrit}
-                          </p>
+
+                          {/* Sanskrit ONLY if present */}
+                          {msg.verse.sanskrit && (
+                            <p className="sanskrit">
+                              {isLatest
+                                ? (
+                                  <Typewriter
+                                    text={msg.verse.sanskrit}
+                                    speed={10}
+                                    messageId={msg.id + '-sa'}
+                                  />
+                                ) : msg.verse.sanskrit}
+                            </p>
+                          )}
+
+                          {/* English Translation */}
                           <div className="translation">
                             <strong>Translation</strong>
-                            {isLatest ? <Typewriter text={msg.verse.english} speed={5} /> : msg.verse.english}
+                            {isLatest
+                              ? (
+                                <Typewriter
+                                  text={msg.verse.english}
+                                  speed={5}
+                                  messageId={msg.id + '-en'}
+                                />
+                              ) : msg.verse.english}
                           </div>
-                          <div className="translation">
-                            <strong>Tamil</strong>
-                            {isLatest ? <Typewriter text={msg.verse.tamil} speed={5} /> : msg.verse.tamil}
-                          </div>
+
+                          {/* Tamil ONLY if present */}
+                          {msg.verse.tamil && (
+                            <div className="translation">
+                              <strong>Tamil</strong>
+                              {isLatest
+                                ? (
+                                  <Typewriter
+                                    text={msg.verse.tamil}
+                                    speed={5}
+                                    messageId={msg.id + '-ta'}
+                                  />
+                                ) : msg.verse.tamil}
+                            </div>
+                          )}
+
                         </div>
                       </div>
                     )}
+
                   </div>
                 </div>
               )
             })}
 
+            {/* -------- LOADING -------- */}
             {loading && (
               <div className="message-row bot">
-                <div className="bubble bot" style={{padding: '15px 20px'}}>
+                <div className="bubble bot" style={{ padding: '15px 20px' }}>
                   <span className="typing-indicator"></span>
                 </div>
               </div>
             )}
+
             <div ref={messagesEndRef} />
           </div>
         </div>
 
+        {/* -------- INPUT -------- */}
         <div className="input-area">
           <div className="input-wrapper">
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={e => setInput(e.target.value)}
               placeholder="Ask Krishna for guidance..."
-              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+              onKeyPress={e => e.key === 'Enter' && sendMessage()}
               disabled={loading}
               autoFocus
             />
