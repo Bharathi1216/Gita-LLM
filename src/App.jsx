@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import './App.css'
 
-// ================= TYPEWRITER (FIXED, MESSAGE-ID BASED) =================
+// Typewriter component for animating bot messages
 const Typewriter = ({ text, speed = 15, onComplete, messageId }) => {
   const [display, setDisplay] = useState('')
   const typedMessagesRef = useRef(new Set())
 
   useEffect(() => {
-    // If this message already typed once, show instantly
     if (typedMessagesRef.current.has(messageId)) {
       setDisplay(text)
       return
@@ -33,7 +32,6 @@ const Typewriter = ({ text, speed = 15, onComplete, messageId }) => {
   return <span>{display}</span>
 }
 
-// ================= APP =================
 function App() {
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([])
@@ -41,7 +39,6 @@ function App() {
   const [userId, setUserId] = useState(null)
   const messagesEndRef = useRef(null)
 
-  // ---------- INIT ----------
   useEffect(() => {
     setMessages([{ 
       sender: 'bot',
@@ -65,16 +62,10 @@ function App() {
 
   useEffect(scrollToBottom, [messages, loading])
 
-  // ---------- SEND MESSAGE ----------
   const sendMessage = async () => {
     if (!input.trim()) return
 
-    const userMsg = {
-      sender: 'user',
-      text: input,
-      id: Date.now()
-    }
-
+    const userMsg = { sender: 'user', text: input, id: Date.now() }
     setMessages(prev => [...prev, userMsg])
     setInput('')
     setLoading(true)
@@ -83,14 +74,10 @@ function App() {
       const response = await fetch('http://127.0.0.1:5000/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userMsg.text,
-          user_id: userId
-        })
+        body: JSON.stringify({ message: userMsg.text, user_id: userId })
       })
 
       const data = await response.json()
-
       const botMsg = {
         sender: 'bot',
         text: data?.response || 'Please try again.',
