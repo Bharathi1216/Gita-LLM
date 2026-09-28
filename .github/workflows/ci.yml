@@ -1,0 +1,54 @@
+﻿name: CI Build & FlowForge RCA Target
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  frontend-build:
+    name: Frontend Build Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: package.json
+
+      - name: Install Frontend Dependencies
+        # If Error 1 is enabled in package.json, this step fails with ETARGET (no matching version)
+        run: npm install
+
+      - name: Build Frontend (Vite)
+        # If Error 2 is enabled, fails with ReferenceError in vite.config.js
+        # If Error 3 is enabled, fails with Rollup failed to resolve import in App.jsx
+        run: npm run build
+
+  backend-check:
+    name: Backend Validation Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Backend Import & Startup Validation
+        # If Error 4 is enabled, fails with ModuleNotFoundError: No module named 'flowforge_audit_logger'
+        run: |
+          python -c "import main_bot"

@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import './App.css'
 
+// [FLOWFORGE ERROR 3: Frontend Build / Unresolved Import Error]
+// To disable this error, comment out or remove the import below:
+import { GitaNavbar } from './components/GitaNavbar'
+
 // Typewriter component for animating bot messages
 const Typewriter = ({ text, speed = 15, onComplete, messageId }) => {
   const [display, setDisplay] = useState('')
@@ -101,6 +105,10 @@ function App() {
   return (
     <div className="main-wrapper">
       <div className="app-container">
+
+        {/* [FLOWFORGE ERROR 3: Component reference]
+            To disable this error, comment out the line below: */}
+        <GitaNavbar />
 
         <header className="chat-header">
           <h1>GITA <span>AI</span></h1>

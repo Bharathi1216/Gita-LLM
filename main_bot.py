@@ -1,3 +1,9 @@
+# ==============================================================================
+# [FLOWFORGE ERROR 4: Backend Dependency / Missing Module Import Error]
+# To disable this error, comment out or remove the import below:
+# ==============================================================================
+import flowforge_audit_logger  # Will raise ModuleNotFoundError: No module named 'flowforge_audit_logger'
+
 import os
 import uuid
 import random
